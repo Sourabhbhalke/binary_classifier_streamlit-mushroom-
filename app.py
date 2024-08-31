@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -8,7 +9,6 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import ConfusionMatrixDisplay, RocCurveDisplay, PrecisionRecallDisplay
 from sklearn.metrics import precision_score, recall_score
-import matplotlib.pyplot as plt
 
 def main():
     st.title("Binary Classification Web App")
@@ -18,7 +18,8 @@ def main():
 
     @st.cache_data(persist=True)
     def load_data():
-        data = pd.read_csv(r'C:\Users\HP-Sourabh\My python stuff\C5. Mashroom Binary Classifier streamlit\mushrooms.csv')
+        # Load and preprocess data
+        data = pd.read_csv('mushrooms.csv')  # Adjust the path as needed
         label = LabelEncoder()
         for col in data.columns:
             data[col] = label.fit_transform(data[col])
@@ -26,27 +27,29 @@ def main():
     
     @st.cache_data(persist=True)
     def split(df):
-        y = df['type']
+        # Split data into training and testing sets
+        y = df.type
         x = df.drop(columns=['type'])
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=0)
         return x_train, x_test, y_train, y_test
     
-    def plot_metrics(metrics_list, model, x_test, y_test):
+    def plot_metrics(metrics_list):
+        # Plot selected metrics
         if 'Confusion Matrix' in metrics_list:
             st.subheader('Confusion Matrix')
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots()  # Create a figure and axis
             ConfusionMatrixDisplay.from_estimator(model, x_test, y_test, display_labels=class_names, ax=ax)
-            st.pyplot(fig)
+            st.pyplot(fig)  # Pass the figure to st.pyplot
         if 'ROC Curve' in metrics_list:
             st.subheader("ROC Curve")
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots()  # Create a figure and axis
             RocCurveDisplay.from_estimator(model, x_test, y_test, ax=ax)
-            st.pyplot(fig)
+            st.pyplot(fig)  # Pass the figure to st.pyplot
         if 'Precision-Recall Curve' in metrics_list:
             st.subheader("Precision-Recall Curve")
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots()  # Create a figure and axis
             PrecisionRecallDisplay.from_estimator(model, x_test, y_test, ax=ax)
-            st.pyplot(fig)
+            st.pyplot(fig)  # Pass the figure to st.pyplot
 
     df = load_data()
     x_train, x_test, y_train, y_test = split(df)
@@ -58,39 +61,62 @@ def main():
     if classifier == 'Support Vector Machine (SVM)':
         st.sidebar.subheader("Model Hyperparameters")
         C = st.sidebar.number_input("C (Regularization parameter)", 0.01, 10.0, step=0.01, key='C')
-        kernel = st.sidebar.radio("Kernel", ("linear", "rbf", "poly", "sigmoid"), key='kernel')
+        Kernel = st.sidebar.radio("Kernel", ("rbf", "linear"), key='kernel')
         gamma = st.sidebar.radio("Gamma (Kernel Coefficient)", ("scale", "auto"), key='gamma')
-        model = SVC(C=C, kernel=kernel, gamma=gamma)
+
+        metrics = st.sidebar.multiselect("What metrics to plot?", ('Confusion Matrix', 'ROC Curve', 'Precision-Recall Curve'))
+
+        if st.sidebar.button("Classify", key="Classify"):
+            st.subheader("Support Vector Machine (SVM) Results")
+            model = SVC(C=C, kernel=Kernel, gamma=gamma)
+            model.fit(x_train, y_train)
+            y_pred = model.predict(x_test)
+            accuracy = model.score(x_test, y_test)
+            st.write("Accuracy:", round(accuracy, 2))
+            st.write("Precision:", round(precision_score(y_test, y_pred, pos_label=1), 2))  # Adjust pos_label as needed
+            st.write("Recall:", round(recall_score(y_test, y_pred, pos_label=1), 2))  # Adjust pos_label as needed
+            plot_metrics(metrics)
 
     elif classifier == 'Logistic Regression':
         st.sidebar.subheader("Model Hyperparameters")
-        C = st.sidebar.number_input("C (Regularization parameter)", 0.01, 10.0, step=0.01, key='C_lr')
+        C = st.sidebar.number_input("C (Regularization parameter)", 0.01, 10.0, step=0.01, key='C_LR')
         max_iter = st.sidebar.slider("Maximum number of iterations", 100, 500, key='max_iter')
-        model = LogisticRegression(C=C, max_iter=max_iter)
+
+        metrics = st.sidebar.multiselect("What metrics to plot?", ('Confusion Matrix', 'ROC Curve', 'Precision-Recall Curve'))
+        
+        if st.sidebar.button("Classify", key="Classify"):
+            st.subheader("Logistic Regression Results")
+            model = LogisticRegression(C=C, max_iter=max_iter)
+            model.fit(x_train, y_train)
+            y_pred = model.predict(x_test)
+            accuracy = model.score(x_test, y_test)
+            st.write("Accuracy:", round(accuracy, 2))
+            st.write("Precision:", round(precision_score(y_test, y_pred, pos_label=1), 2))  # Adjust pos_label as needed
+            st.write("Recall:", round(recall_score(y_test, y_pred, pos_label=1), 2))  # Adjust pos_label as needed
+            plot_metrics(metrics)
 
     elif classifier == 'Random Forest':
         st.sidebar.subheader("Model Hyperparameters")
-        n_estimators = st.sidebar.number_input("Number of trees in the forest", 100, 1000, step=10, key='n_estimators')
-        max_depth = st.sidebar.slider("Maximum depth of the tree", 1, 20, key='max_depth')
-        model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=0)
+        n_estimators = st.sidebar.number_input("The number of trees in the forest", 100, 5000, step=10, key='n_estim')
+        max_depth = st.sidebar.number_input("The Max Depth of the tree", 1, 20, step=1, key='max_depth')
+        bootstrap_str = st.sidebar.radio("Bootstrap samples when building trees", ('True', 'False'), key='bootstrap')
+        bootstrap = bootstrap_str == 'True'  # Convert string to boolean
+        metrics = st.sidebar.multiselect("What metrics to plot?", ('Confusion Matrix', 'ROC Curve', 'Precision-Recall Curve'))
+        
+        if st.sidebar.button("Classify", key="Classify"):
+            st.subheader("Random Forest Results")
+            model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, bootstrap=bootstrap, n_jobs=-1)
+            model.fit(x_train, y_train)
+            y_pred = model.predict(x_test)
+            accuracy = model.score(x_test, y_test)
+            st.write("Accuracy:", round(accuracy, 2))
+            st.write("Precision:", round(precision_score(y_test, y_pred, pos_label=1), 2))  # Adjust pos_label as needed
+            st.write("Recall:", round(recall_score(y_test, y_pred, pos_label=1), 2))  # Adjust pos_label as needed
+            plot_metrics(metrics)
 
     if st.sidebar.checkbox("Show raw data", False):
         st.subheader("Mushroom Data Set Classification")
         st.write(df)
 
-    model.fit(x_train, y_train)
-    y_pred = model.predict(x_test)
-    st.write("Accuracy: ", model.score(x_test, y_test))
-
-    st.sidebar.subheader("Model Evaluation")
-    metrics = st.sidebar.multiselect("What metrics to plot?", ('Confusion Matrix', 'ROC Curve', 'Precision-Recall Curve'))
-
-    if metrics:
-        plot_metrics(metrics, model, x_test, y_test)
-
 if __name__ == '__main__':
     main()
-
-
-
-
