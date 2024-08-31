@@ -18,7 +18,9 @@ def main():
 
     @st.cache_data(persist=True)
     def load_data():
-        data = pd.read_csv(r'C:\Users\HP-Sourabh\My python stuff\C5. Mashroom Binary Classifier streamlit\mushrooms.csv')
+        #data = pd.read_csv(r'C:\Users\HP-Sourabh\My python stuff\C5. Mashroom Binary Classifier streamlit\mushrooms.csv')
+        data = pd.read_csv('mushrooms.csv')
+
         label = LabelEncoder()
         for col in data.columns:
             data[col] = label.fit_transform(data[col])
@@ -81,6 +83,7 @@ def main():
     model.fit(x_train, y_train)
     y_pred = model.predict(x_test)
     st.write("Accuracy: ", model.score(x_test, y_test))
+    
 
     st.sidebar.subheader("Model Evaluation")
     metrics = st.sidebar.multiselect("What metrics to plot?", ('Confusion Matrix', 'ROC Curve', 'Precision-Recall Curve'))
